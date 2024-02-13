@@ -1,0 +1,210 @@
+package debug
+
+import (
+    "fmt"       
+    "regexp"
+    "testing"
+    "time"
+
+    "golang.org/x/crypto/ssh"
+    "github.com/google/goexpect"  
+)
+
+// Define device structure
+type Device struct {
+    Alias       string
+    IP          string
+    Port        int
+    Username    string
+    Password    string
+}
+
+// Define interface structure
+type Interface struct {
+    Name        string
+    IPAddress   string
+}
+
+// Define connection structure
+type Connection struct {
+    FromDevice  string
+    ToDevice    string
+    Interface   string
+}
+
+// Function to connect to a device using SSH
+func connectToDevice(device Device) (*expect.GExpect, error) {
+    // Create SSH client configuration
+    sshConfig := &ssh.ClientConfig{    
+        User: device.Username,                           
+        Auth: []ssh.AuthMethod{
+            ssh.Password(device.Password),
+        },
+        HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+        Timeout:         5 * time.Second,
+    }
+
+    // Connect to the device      
+    conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", device.IP, device.Port), sshConfig)
+    if err != nil {
+        return nil, fmt.Errorf("failed to connect to device %s: %v", device.Alias, err)
+    }
+
+    // Create expect instance to interact with the session    
+    e, _, err := expect.SpawnSSH(conn, 10*time.Second)
+    if err != nil {
+        conn.Close()
+        return nil, fmt.Errorf("failed to start expect session with device %s: %v", device.Alias, err)
+    }
+
+    return e, nil
+}
+
+func TestDeviceConnections(t *testing.T) {
+    // Define devices
+    devices := map[string]Device{
+        "dut1": {
+            Alias:    "dut1",
+            IP:       "10.133.35.158",
+            Port:     22,
+            Username: "admin",
+            Password: "tcs123",
+        },
+        "dut2": {
+            Alias:    "dut2",
+            IP:       "10.133.35.143",
+            Port:     22,
+            Username: "admin",
+            Password: "tcs123",
+        },
+        "dut3": {
+            Alias:    "dut3",
+            IP:       "10.133.35.139",
+            Port:     22,
+            Username: "admin",
+            Password: "tcs123",
+        },
+    }
+
+    // Define interfaces and their IP addresses from the datafile
+    interfaces := map[string]string{
+        "ethernet1/1": "192.168.30.2",
+        "ethernet1/7": "192.168.50.2",
+    }
+
+    // Define connections from the topology
+    connections := map[string]Connection{
+        "uut1_uut3_1": {
+            FromDevice:  "dut1",
+            ToDevice:    "dut3",
+            Interface:   "ethernet1/1",
+        },
+        "uut2_uut3_1": {
+            FromDevice:  "dut2",
+            ToDevice:    "dut3",
+            Interface:   "ethernet1/7",
+        },
+        "uut3_uut1_1": {
+            FromDevice:  "dut3",
+            ToDevice:    "dut1",
+            Interface:   "ethernet1/1",
+        },
+        "uut3_uut2_1": {
+            FromDevice:  "dut3",
+            ToDevice:    "dut2",
+            Interface:   "ethernet1/7",
+        },
+    }
+
+    // Connect to devices and perform operations
+    for _, conn := range connections {
+        fromDevice := devices[conn.FromDevice]
+        toDevice := devices[conn.ToDevice]
+        fromInterface := interfaces[conn.Interface]
+
+        t.Logf("Testing connection from %s to %s using interface %s", fromDevice.Alias, toDevice.Alias, fromInterface)
+
+        e, err := connectToDevice(fromDevice)
+        if err != nil {
+            t.Errorf("Failed to connect to device %s: %v", fromDevice.Alias, err)
+            continue
+        }
+        defer e.Close()
+
+        // Example: Ping from one device to another using the interface IP
+        e.Expect(regexp.MustCompile("#"), 10*time.Second) 
+        e.Send(fmt.Sprintf("ping %s\n", fromInterface))
+        output, _, _ := e.Expect(regexp.MustCompile("#"), 10*time.Second) 
+        t.Logf("Ping from %s to %s using interface %s - Output:\n%s", fromDevice.Alias, toDevice.Alias, fromInterface, output)
+    }
+}
+
+
+
+OUTPUT: 
+
+=== RUN   TestDeviceConnections
+    sam1_test.go:125: Testing connection from dut2 to dut3 using interface 192.168.50.2
+    sam1_test.go:138: Ping from dut2 to dut3 using interface 192.168.50.2 - Output:
+        ping 192.168.50.2
+        PING 192.168.50.2 (192.168.50.2): 56 data bytes
+        64 bytes from 192.168.50.2: icmp_seq=0 ttl=255 time=0.376 ms
+        64 bytes from 192.168.50.2: icmp_seq=1 ttl=255 time=0.244 ms
+        64 bytes from 192.168.50.2: icmp_seq=2 ttl=255 time=0.26 ms
+        64 bytes from 192.168.50.2: icmp_seq=3 ttl=255 time=0.343 ms
+        64 bytes from 192.168.50.2: icmp_seq=4 ttl=255 time=0.398 ms
+        
+        --- 192.168.50.2 ping statistics ---
+        5 packets transmitted, 5 packets received, 0.00% packet loss
+        round-trip min/avg/max = 0.244/0.324/0.398 ms
+n9k4#   
+    sam1_test.go:125: Testing connection from dut3 to dut1 using interface 192.168.30.2
+    sam1_test.go:138: Ping from dut3 to dut1 using interface 192.168.30.2 - Output:
+        ping 192.168.30.2
+        PING 192.168.30.2 (192.168.30.2): 56 data bytes
+        64 bytes from 192.168.30.2: icmp_seq=0 ttl=254 time=0.532 ms
+        64 bytes from 192.168.30.2: icmp_seq=1 ttl=254 time=0.401 ms
+        64 bytes from 192.168.30.2: icmp_seq=2 ttl=254 time=0.346 ms
+        64 bytes from 192.168.30.2: icmp_seq=3 ttl=254 time=0.362 ms
+        64 bytes from 192.168.30.2: icmp_seq=4 ttl=254 time=0.317 ms
+        
+        --- 192.168.30.2 ping statistics ---
+        5 packets transmitted, 5 packets received, 0.00% packet loss
+        round-trip min/avg/max = 0.317/0.391/0.532 ms
+n9k2#   
+    sam1_test.go:125: Testing connection from dut3 to dut2 using interface 192.168.50.2
+    sam1_test.go:138: Ping from dut3 to dut2 using interface 192.168.50.2 - Output:
+        ping 192.168.50.2
+        PING 192.168.50.2 (192.168.50.2): 56 data bytes
+        ping: sendto 192.168.50.2 64 chars, No route to host
+        Request 0 timed out
+        ping: sendto 192.168.50.2 64 chars, No route to host
+        Request 1 timed out
+        ping: sendto 192.168.50.2 64 chars, No route to host
+        Request 2 timed out
+        ping: sendto 192.168.50.2 64 chars, No route to host
+        Request 3 timed out
+        ping: sendto 192.168.50.2 64 chars, No route to host
+        Request 4 timed out
+        
+        --- 192.168.50.2 ping statistics ---
+        5 packets transmitted, 0 packets received, 100.00% packet loss
+n9k2#   
+    sam1_test.go:125: Testing connection from dut1 to dut3 using interface 192.168.30.2
+    sam1_test.go:138: Ping from dut1 to dut3 using interface 192.168.30.2 - Output:
+        ping 192.168.30.2
+        PING 192.168.30.2 (192.168.30.2): 56 data bytes
+        64 bytes from 192.168.30.2: icmp_seq=0 ttl=255 time=0.248 ms
+        64 bytes from 192.168.30.2: icmp_seq=1 ttl=255 time=0.181 ms
+        64 bytes from 192.168.30.2: icmp_seq=2 ttl=255 time=0.216 ms
+        64 bytes from 192.168.30.2: icmp_seq=3 ttl=255 time=0.18 ms
+        64 bytes from 192.168.30.2: icmp_seq=4 ttl=255 time=0.129 ms
+        
+        --- 192.168.30.2 ping statistics ---
+        5 packets transmitted, 5 packets received, 0.00% packet loss
+        round-trip min/avg/max = 0.129/0.19/0.248 ms
+n9k1#   
+--- PASS: TestDeviceConnections (11.00s)
+PASS
+ok  	github.com/openconfig/ondatra/debug	11.012s
+
