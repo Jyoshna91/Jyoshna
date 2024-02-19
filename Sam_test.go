@@ -13,14 +13,15 @@ import (
 	"google.golang.org/grpc"
 )
 
+// OTG represents the Open Traffic Generator.
 type OTG struct {
-	ate *fakebind.ATE
+	ate binding.ATE
 }
 
 var (
 	fakeSnappi = new(fakeGosnappi)
 	fakeATE    = &fakebind.ATE{
-		AbstractATE: &binding.AbstractATE{&binding.Dims{
+		AbstractATE: &binding.AbstractATE{Dims: &binding.Dims{
 			Ports: map[string]*binding.Port{"port1": {}},
 		}},
 		DialOTGFn: func(context.Context, ...grpc.DialOption) (gosnappi.Api, error) {
@@ -30,70 +31,90 @@ var (
 	otgAPI = &OTG{ate: fakeATE}
 )
 
-func (otg *OTG) FetchConfig(t *testing.T) gosnappi.Config {
+func TestFetchConfig(t *testing.T) {
 	wantCfg := gosnappi.NewConfig()
 	fakeSnappi.config = wantCfg
 	gotCfg := otgAPI.FetchConfig(t)
 	if wantCfg != gotCfg {
 		t.Errorf("FetchConfig got unexpected config %v, want %v", gotCfg, wantCfg)
 	}
-	return gotCfg
 }
 
-func (otg *OTG) PushConfig(t *testing.T, cfg gosnappi.Config) {
-	otg.ate.SetConfig(cfg)
+func TestPushConfig(t *testing.T) {
+	wantCfg := gosnappi.NewConfig()
+	wantCfg.Ports().Add().SetName("port1")
+	otgAPI.PushConfig(t, wantCfg)
+	if gotCfg := fakeSnappi.config; wantCfg != gotCfg {
+		t.Errorf("PushConfig got unexpected config %v, want %v", gotCfg, wantCfg)
+	}
 }
 
-func (otg *OTG) StartProtocols(t *testing.T) {
+func TestPushConfigBadPortName(t *testing.T) {
+	cfg := gosnappi.NewConfig()
+	cfg.Ports().Add().SetName("port3")
+	gotErr := testt.ExpectFatal(t, func(t testing.TB) {
+		otgAPI.PushConfig(t, cfg)
+	})
+	if wantErr := "not one of the ATE ports"; !strings.Contains(gotErr, wantErr) {
+		t.Errorf("PushConfig got unexpected err %s, want err containing %s", gotErr, wantErr)
+	}
+}
+
+func TestStartProtocols(t *testing.T) {
 	fakeSnappi.controlState = nil
 	otgAPI.StartProtocols(t)
-	if got, want := fakeSnappi.controlState.Protocol().All().State(), gosnappi.StateProtocolAllState.START; got != want {
+	if got, want := fakeSnappi.controlState.Protocol().All().State(), gosnappi.StateProtocolAllState_START; got != want {
 		t.Errorf("StartProtocols got unexpected protocol state %v, want %v", got, want)
 	}
 }
 
-func (otg *OTG) StopProtocols(t *testing.T) {
+func TestStopProtocols(t *testing.T) {
 	fakeSnappi.controlState = nil
 	otgAPI.StopProtocols(t)
-	if got, want := fakeSnappi.controlState.Protocol().All().State(), gosnappi.StateProtocolAllState.STOP; got != want {
+	if got, want := fakeSnappi.controlState.Protocol().All().State(), gosnappi.StateProtocolAllState_STOP; got != want {
 		t.Errorf("StopProtocols got unexpected protocol state %v, want %v", got, want)
 	}
 }
 
-func (otg *OTG) StartTraffic(t *testing.T) {
+func TestStartTraffic(t *testing.T) {
 	fakeSnappi.controlState = nil
 	otgAPI.StartTraffic(t)
-	if got, want := fakeSnappi.controlState.Traffic().FlowTransmit().State(), gosnappi.StateTrafficFlowTransmitState.START; got != want {
+	if got, want := fakeSnappi.controlState.Traffic().FlowTransmit().State(), gosnappi.StateTrafficFlowTransmitState_START; got != want {
 		t.Errorf("StartTraffic got unexpected transmit state %v, want %v", got, want)
 	}
 }
 
-func (otg *OTG) StopTraffic(t *testing.T) {
+func TestStopTraffic(t *testing.T) {
 	fakeSnappi.controlState = nil
 	otgAPI.StopTraffic(t)
-	if got, want := fakeSnappi.controlState.Traffic().FlowTransmit().State(), gosnappi.StateTrafficFlowTransmitState.STOP; got != want {
+	if got, want := fakeSnappi.controlState.Traffic().FlowTransmit().State(), gosnappi.StateTrafficFlowTransmitState_STOP; got != want {
 		t.Errorf("StopTraffic got unexpected transmit state %v, want %v", got, want)
 	}
 }
 
-func (otg *OTG) SetControlState(t *testing.T, state gosnappi.ControlState) {
-	otgAPI.SetControlState(t, state)
-	if got := fakeSnappi.controlState; got != state {
-		t.Errorf("SetControlState got unexpected control state %v, want %v", got, state)
+func TestSetControlState(t *testing.T) {
+	fakeSnappi.controlState = nil
+	want := gosnappi.NewControlState()
+	otgAPI.SetControlState(t, want)
+	if got := fakeSnappi.controlState; got != want {
+		t.Errorf("TestSetControlState got unexpected control state %v, want %v", got, want)
 	}
 }
 
-func (otg *OTG) SetControlAction(t *testing.T, action gosnappi.ControlAction) {
-	otgAPI.SetControlAction(t, action)
-	if got := fakeSnappi.controlAction; got != action {
-		t.Errorf("SetControlAction got unexpected control action %v, want %v", got, action)
+func TestSetControlAction(t *testing.T) {
+	fakeSnappi.controlAction = nil
+	want := gosnappi.NewControlAction()
+	otgAPI.SetControlAction(t, want)
+	if got := fakeSnappi.controlAction; got != want {
+		t.Errorf("SetControlAction got unexpected control action %v, want %v", got, want)
 	}
 }
 
-func (otg *OTG) GetCapture(t *testing.T, request gosnappi.CaptureRequest) {
-	otgAPI.GetCapture(t, request)
-	if got := fakeSnappi.captureReq; got != request {
-		t.Errorf("GetCapture got unexpected request %v, want %v", got, request)
+func TestGetCapture(t *testing.T) {
+	want := gosnappi.NewCaptureRequest().SetPortName("port1")
+	otgAPI.GetCapture(t, want)
+	if got := fakeSnappi.captureReq; got != want {
+		t.Errorf("GetCapture got unexpected request %v, want %v", got, want)
 	}
 }
 
