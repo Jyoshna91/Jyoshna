@@ -1,0 +1,54 @@
+package main
+
+import (
+	"fmt"
+	"golang.org/x/crypto/ssh"
+	"time"
+)
+
+func main() {
+	const (
+		routerUsername      = "your_username"
+		routerPassword      = "your_password"
+		routerIP            = "router_ip_address"
+		otherRouterIP       = "other_router_ip_address"
+		otherRouterInteface = "other_router_interface"
+		pingCount           = 3
+	)
+
+	// Create SSH client configuration
+	config := &ssh.ClientConfig{
+		User: routerUsername,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(routerPassword),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Use only in testing, not recommended for production
+	}
+
+	// Connect to the router
+	client, err := ssh.Dial("tcp", routerIP+":22", config)
+	if err != nil {
+		fmt.Println("Failed to dial router:", err)
+		return
+	}
+	defer client.Close()
+
+	// Create a session
+	session, err := client.NewSession()
+	if err != nil {
+		fmt.Println("Failed to create session:", err)
+		return
+	}
+	defer session.Close()
+
+	// Execute ping command on the router to the other router's interface
+	pingCommand := fmt.Sprintf("ping -c %d %s", pingCount, otherRouterInteface)
+	pingOutput, err := session.CombinedOutput(pingCommand)
+	if err != nil {
+		fmt.Println("Failed to execute ping command:", err)
+		return
+	}
+	fmt.Println("Ping output:", string(pingOutput))
+
+	fmt.Println("Ping traffic generation completed.")
+}
