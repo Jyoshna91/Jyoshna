@@ -1,4 +1,4 @@
-package main
+package otg
 
 import (
 	"fmt"
@@ -8,11 +8,11 @@ import (
 
 func main() {
 	const (
-		routerUsername      = "your_username"
-		routerPassword      = "your_password"
-		routerIP            = "router_ip_address"
-		otherRouterIP       = "other_router_ip_address"
-		otherRouterInteface = "other_router_interface"
+		routerUsername      = "tcs"
+		routerPassword      = "tcs123"
+		routerIP            = "10.133.35.158"
+		otherRouterIP       = "10.133.35.143"
+		otherRouterInteface = "192.168.3.1"
 		pingCount           = 3
 	)
 
