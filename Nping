@@ -1,0 +1,41 @@
+package main
+
+import (
+	"fmt"
+	"os/exec"
+	"strings"
+	"time"
+)
+
+func main() {
+	const (
+		sourceIP   = "192.0.2.2"
+		destinationIP = "20.21.21.21"
+		duration   = 30 * time.Second
+	)
+
+	// Construct nping command
+	command := fmt.Sprintf("nping --udp -c 1000 --rate 100 --source-ip %s %s", sourceIP, destinationIP)
+	args := strings.Split(command, " ")
+
+	// Execute nping command
+	cmd := exec.Command(args[0], args[1:]...)
+	err := cmd.Start()
+	if err != nil {
+		fmt.Println("Error starting nping command:", err)
+		return
+	}
+
+	// Wait for the specified duration
+	time.Sleep(duration)
+
+	// Stop nping command
+	err = cmd.Process.Kill()
+	if err != nil {
+		fmt.Println("Error stopping nping command:", err)
+		return
+	}
+
+	// Print completion message
+	fmt.Println("nping traffic generation completed.")
+}
