@@ -41,14 +41,16 @@ func main() {
 	}
 	defer session.Close()
 
-	// Execute ping command on the router to the other router's interface
-	pingCommand := fmt.Sprintf("ping -c %d %s", pingCount, otherRouterInteface)
-	pingOutput, err := session.CombinedOutput(pingCommand)
+	// Construct Nping command
+	npingCommand := fmt.Sprintf("nping -c %d --source-ip %s %s", pingCount, routerIP, otherRouterInteface)
+
+	// Execute Nping command on the router
+	npingOutput, err := session.CombinedOutput(npingCommand)
 	if err != nil {
-		fmt.Println("Failed to execute ping command:", err)
+		fmt.Println("Failed to execute Nping command:", err)
 		return
 	}
-	fmt.Println("Ping output:", string(pingOutput))
+	fmt.Println("Nping output:", string(npingOutput))
 
-	fmt.Println("Ping traffic generation completed.")
+	fmt.Println("Nping traffic generation completed.")
 }
