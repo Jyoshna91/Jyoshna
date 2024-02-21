@@ -1,56 +1,40 @@
-package main
+package otg
 
 import (
-    "fmt"
-    "io/ioutil"
-    "log"
-    "net/http"
-    "os"
-    "os/exec"
+	"fmt"
+	"os/exec"
+	"testing"
+	"time"
 )
 
-func main() {
-    http.HandleFunc("/login", loginHandler)
-    http.HandleFunc("/connect", connectHandler)
+func TestConnectToRouter11(t *testing.T) {
+	const (
+		sourceIP      = "10.133.35.158"
+		destinationIP = "10.133.35.143"
+		duration      = 30 * time.Second
+	)
 
-    log.Fatal(http.ListenAndServe(":8080", nil))
-}
+	// Construct nping command
+	command := fmt.Sprintf("sudo nping --udp -c 10 --rate 100 %s %s", sourceIP, destinationIP)
 
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-    // Parse username and password from the request
-    username := r.FormValue("username")
-    password := r.FormValue("password")
+	// Execute nping command
+	cmd := exec.Command("sh", "-c", command)
 
-    // Authenticate user (you can implement your own authentication logic here)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Error starting nping command: %v. Output: %s", err,output)
+	}
 
-    // Dummy authentication example
-    if username != "your_username" || password != "your_password" {
-        http.Error(w, "Unauthorized", http.StatusUnauthorized)
-        return
-    }
+	t.Logf("nping output: %s", string(output))
 
-    // Authentication successful
-    w.WriteHeader(http.StatusOK)
-    fmt.Fprintf(w, "Login successful")
-}
+	// Wait for the specified duration
+	time.Sleep(duration)
 
-func connectHandler(w http.ResponseWriter, r *http.Request) {
-    // Parse username from the request
-    username := r.FormValue("username")
+	// Stop nping command
+	err = cmd.Process.Kill()
+	if err != nil {
+		t.Fatalf("Error stopping nping command: %v", err)
+	}
 
-    // Run SSH command to connect to the destination host
-    cmd := exec.Command("ssh", username+"@10.133.35.143", "-p", "22")
-    cmd.Stdout = os.Stdout
-    cmd.Stderr = os.Stderr
-
-    // Execute the command
-    err := cmd.Run()
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-
-    // Command executed successfully
-    w.WriteHeader(http.StatusOK)
-    fmt.Fprintf(w, "Connected to virtual host")
+	t.Log("nping traffic generation completed.")
 }
