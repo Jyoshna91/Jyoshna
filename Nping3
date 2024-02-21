@@ -1,0 +1,56 @@
+package main
+
+import (
+    "fmt"
+    "io/ioutil"
+    "log"
+    "net/http"
+    "os"
+    "os/exec"
+)
+
+func main() {
+    http.HandleFunc("/login", loginHandler)
+    http.HandleFunc("/connect", connectHandler)
+
+    log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+    // Parse username and password from the request
+    username := r.FormValue("username")
+    password := r.FormValue("password")
+
+    // Authenticate user (you can implement your own authentication logic here)
+
+    // Dummy authentication example
+    if username != "your_username" || password != "your_password" {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
+        return
+    }
+
+    // Authentication successful
+    w.WriteHeader(http.StatusOK)
+    fmt.Fprintf(w, "Login successful")
+}
+
+func connectHandler(w http.ResponseWriter, r *http.Request) {
+    // Parse username from the request
+    username := r.FormValue("username")
+
+    // Run SSH command to connect to the destination host
+    cmd := exec.Command("ssh", username+"@10.133.35.143", "-p", "22")
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+
+    // Execute the command
+    err := cmd.Run()
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    // Command executed successfully
+    w.WriteHeader(http.StatusOK)
+    fmt.Fprintf(w, "Connected to virtual host")
+}
