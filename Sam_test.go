@@ -1,151 +1,48 @@
-package otg
+package nping_test
 
 import (
-	"strings"
 	"testing"
+	"time"
 
-	"golang.org/x/net/context"
-
-	"github.com/open-traffic-generator/snappi/gosnappi"
-	"github.com/openconfig/ondatra/binding"
-	"github.com/openconfig/ondatra/fakebind"
-	"github.com/openconfig/testt"
-	"google.golang.org/grpc"
+	"github.com/openconfig/ondatra"
+	"github.com/openconfig/ondatra/nping"
 )
 
-// OTG represents the Open Traffic Generator.
-type OTG struct {
-	ate binding.ATE
-}
+func TestSendUDPTraffic(t *testing.T) {
+	// Set up the test environment
+	ate := ondatra.ATE(t, "ate")
+	srcRouter := ate.Device(t, "source_router")
+	dstRouter := ate.Device(t, "destination_router")
 
-var (
-	fakeSnappi = new(fakeGosnappi)
-	fakeATE    = &fakebind.ATE{
-		AbstractATE: &binding.AbstractATE{Dims: &binding.Dims{
-			Ports: map[string]*binding.Port{"port1": {}},
-		}},
-		DialOTGFn: func(context.Context, ...grpc.DialOption) (gosnappi.Api, error) {
-			return fakeSnappi, nil
-		},
-	}
-	otgAPI = &OTG{ate: fakeATE}
-)
+	// Define parameters for packet generation
+	srcIP := "192.0.2.1"
+	dstIP := "198.51.100.2"
+	udpPort := 5000
 
-func TestFetchConfig(t *testing.T) {
-	wantCfg := gosnappi.NewConfig()
-	fakeSnappi.config = wantCfg
-	gotCfg := otgAPI.FetchConfig(t)
-	if wantCfg != gotCfg {
-		t.Errorf("FetchConfig got unexpected config %v, want %v", gotCfg, wantCfg)
-	}
-}
+	// Set up nping configuration
+	cfg := nping.NewConfig()
+	cfg.SetSourceDevice(srcRouter.ID()).
+		SetDestinationDevice(dstRouter.ID())
 
-func TestPushConfig(t *testing.T) {
-	wantCfg := gosnappi.NewConfig()
-	wantCfg.Ports().Add().SetName("port1")
-	otgAPI.PushConfig(t, wantCfg)
-	if gotCfg := fakeSnappi.config; wantCfg != gotCfg {
-		t.Errorf("PushConfig got unexpected config %v, want %v", gotCfg, wantCfg)
-	}
-}
+	// Send UDP packets
+	udpFlow := cfg.Flows().Add().
+		SetName("udp_flow").
+		SetProtocol(nping.UDP).
+		SetSourceIP(srcIP).
+		SetDestinationIP(dstIP).
+		SetDestinationPort(udpPort)
+	udpFlow.SetRate(nping.PacketsPerSecond(100))
 
-func TestPushConfigBadPortName(t *testing.T) {
-	cfg := gosnappi.NewConfig()
-	cfg.Ports().Add().SetName("port3")
-	gotErr := testt.ExpectFatal(t, func(t testing.TB) {
-		otgAPI.PushConfig(t, cfg)
-	})
-	if wantErr := "not one of the ATE ports"; !strings.Contains(gotErr, wantErr) {
-		t.Errorf("PushConfig got unexpected err %s, want err containing %s", gotErr, wantErr)
-	}
-}
+	// Push config and start traffic
+	ate.Nping().PushConfig(t, cfg)
+	ate.Nping().StartTraffic(t)
 
-func TestStartProtocols(t *testing.T) {
-	fakeSnappi.controlState = nil
-	otgAPI.StartProtocols(t)
-	if got, want := fakeSnappi.controlState.Protocol().All().State(), gosnappi.StateProtocolAllState_START; got != want {
-		t.Errorf("StartProtocols got unexpected protocol state %v, want %v", got, want)
-	}
-}
+	// Wait for traffic to stabilize
+	time.Sleep(30 * time.Second)
 
-func TestStopProtocols(t *testing.T) {
-	fakeSnappi.controlState = nil
-	otgAPI.StopProtocols(t)
-	if got, want := fakeSnappi.controlState.Protocol().All().State(), gosnappi.StateProtocolAllState_STOP; got != want {
-		t.Errorf("StopProtocols got unexpected protocol state %v, want %v", got, want)
-	}
-}
+	// Stop traffic
+	ate.Nping().StopTraffic(t)
 
-func TestStartTraffic(t *testing.T) {
-	fakeSnappi.controlState = nil
-	otgAPI.StartTraffic(t)
-	if got, want := fakeSnappi.controlState.Traffic().FlowTransmit().State(), gosnappi.StateTrafficFlowTransmitState_START; got != want {
-		t.Errorf("StartTraffic got unexpected transmit state %v, want %v", got, want)
-	}
-}
-
-func TestStopTraffic(t *testing.T) {
-	fakeSnappi.controlState = nil
-	otgAPI.StopTraffic(t)
-	if got, want := fakeSnappi.controlState.Traffic().FlowTransmit().State(), gosnappi.StateTrafficFlowTransmitState_STOP; got != want {
-		t.Errorf("StopTraffic got unexpected transmit state %v, want %v", got, want)
-	}
-}
-
-func TestSetControlState(t *testing.T) {
-	fakeSnappi.controlState = nil
-	want := gosnappi.NewControlState()
-	otgAPI.SetControlState(t, want)
-	if got := fakeSnappi.controlState; got != want {
-		t.Errorf("TestSetControlState got unexpected control state %v, want %v", got, want)
-	}
-}
-
-func TestSetControlAction(t *testing.T) {
-	fakeSnappi.controlAction = nil
-	want := gosnappi.NewControlAction()
-	otgAPI.SetControlAction(t, want)
-	if got := fakeSnappi.controlAction; got != want {
-		t.Errorf("SetControlAction got unexpected control action %v, want %v", got, want)
-	}
-}
-
-func TestGetCapture(t *testing.T) {
-	want := gosnappi.NewCaptureRequest().SetPortName("port1")
-	otgAPI.GetCapture(t, want)
-	if got := fakeSnappi.captureReq; got != want {
-		t.Errorf("GetCapture got unexpected request %v, want %v", got, want)
-	}
-}
-
-type fakeGosnappi struct {
-	gosnappi.Api
-	config        gosnappi.Config
-	controlState  gosnappi.ControlState
-	controlAction gosnappi.ControlAction
-	captureReq    gosnappi.CaptureRequest
-}
-
-func (fg *fakeGosnappi) GetConfig() (gosnappi.Config, error) {
-	return fg.config, nil
-}
-
-func (fg *fakeGosnappi) SetConfig(cfg gosnappi.Config) (gosnappi.Warning, error) {
-	fg.config = cfg
-	return gosnappi.NewWarning(), nil
-}
-
-func (fg *fakeGosnappi) SetControlState(state gosnappi.ControlState) (gosnappi.Warning, error) {
-	fg.controlState = state
-	return gosnappi.NewWarning(), nil
-}
-
-func (fg *fakeGosnappi) SetControlAction(action gosnappi.ControlAction) (gosnappi.ControlActionResponse, error) {
-	fg.controlAction = action
-	return gosnappi.NewControlActionResponse(), nil
-}
-
-func (fg *fakeGosnappi) GetCapture(request gosnappi.CaptureRequest) ([]byte, error) {
-	fg.captureReq = request
-	return nil, nil
+	// Clean up
+	ate.Nping().RemoveConfig(t)
 }
