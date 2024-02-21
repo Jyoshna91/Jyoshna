@@ -1,12 +1,3 @@
-package otg
-
-import (
-	"fmt"
-	"os/exec"
-	"testing"
-	"time"
-)
-
 func TestConnectToRouter11(t *testing.T) {
 	const (
 		sourceIP      = "10.133.35.158"
@@ -22,13 +13,19 @@ func TestConnectToRouter11(t *testing.T) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("Error starting nping command: %v. Output: %s", err,output)
+		t.Fatalf("Error starting nping command: %v. Output: %s", err, output)
 	}
 
 	t.Logf("nping output: %s", string(output))
 
 	// Wait for the specified duration
 	time.Sleep(duration)
+
+	// Check if the process has already finished
+	if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+		t.Log("nping process has already finished.")
+		return
+	}
 
 	// Stop nping command
 	err = cmd.Process.Kill()
