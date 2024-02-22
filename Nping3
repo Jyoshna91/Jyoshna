@@ -1,3 +1,12 @@
+package otg
+
+import (
+	"fmt"
+	"os/exec"
+	"testing"
+	"time"
+)
+
 func TestConnectToRouter11(t *testing.T) {
 	const (
 		sourceIP      = "10.133.35.158"
@@ -6,7 +15,7 @@ func TestConnectToRouter11(t *testing.T) {
 	)
 
 	// Construct nping command
-	command := fmt.Sprintf("sudo nping --udp -c 10 --rate 100 %s %s", sourceIP, destinationIP)
+	command := fmt.Sprintf("sudo nping --udp -c 10000 --rate 100 %s %s", sourceIP, destinationIP)
 
 	// Execute nping command
 	cmd := exec.Command("sh", "-c", command)
