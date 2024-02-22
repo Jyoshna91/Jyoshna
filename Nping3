@@ -12,6 +12,7 @@ func TestConnectToRouter11(t *testing.T) {
 		sourceIP      = "10.133.35.158"
 		destinationIP = "10.133.35.143"
 		duration      = 30 * time.Second
+                //duration      = 2 * time.Minute
 	)
 
 	// Construct nping command
