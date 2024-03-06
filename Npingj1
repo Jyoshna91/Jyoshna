@@ -28,11 +28,11 @@ func TestConnectToRouter18(t *testing.T) {
     outputStyle.ApplyFill = true
 
     passStyle := xlsx.NewStyle()
-    passStyle.Fill = *xlsx.NewFill("solid", "00FF00", "00FF00") // Green for "Passed"
+    passStyle.Fill = *xlsx.NewFill("solid", "FF00FF00", "FF00FF00") // Green for "Passed"
     passStyle.ApplyFill = true
 
     failStyle := xlsx.NewStyle()
-    failStyle.Fill = *xlsx.NewFill("solid", "FF0000", "FF0000") // Red for "Failed"
+    failStyle.Fill = *xlsx.NewFill("solid", "FFFF0000", "FFFF0000") // Red for "Failed"
     failStyle.ApplyFill = true
 
     // Add headers
@@ -64,16 +64,15 @@ func TestConnectToRouter18(t *testing.T) {
 
 func executeAndLogNpingCommand(testName, command string, sheet *xlsx.Sheet, outputStyle, passStyle, failStyle *xlsx.Style, t *testing.T) {
     output, err := executeNpingCommand(command, t)
-    resultStyle := passStyle
-    resultText := "Passed"
 
-    // Check for packet loss in the output
-    if strings.Contains(output, "% packet loss") {
+    // Check for packet loss or command error
+    var resultStyle *xlsx.Style
+    resultText := "Passed"
+    if err != nil || strings.Contains(output, "Lost: ") {
         resultStyle = failStyle
         resultText = "Failed"
-    } else if err != nil {
-        resultStyle = failStyle
-        resultText = "Failed"
+    } else {
+        resultStyle = passStyle
     }
 
     // Record the test name, output, and result in the sheet
