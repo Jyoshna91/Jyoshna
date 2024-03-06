@@ -3,8 +3,6 @@ package otg3
 import (
     "fmt"
     "os/exec"
-    "regexp"
-    "strconv"
     "strings"
     "testing"
     "time"
@@ -30,11 +28,11 @@ func TestConnectToRouter18(t *testing.T) {
     outputStyle.ApplyFill = true
 
     passStyle := xlsx.NewStyle()
-    passStyle.Fill = *xlsx.NewFill("solid", "FF00FF00", "FF00FF00") // Green for "Passed"
+    passStyle.Fill = *xlsx.NewFill("solid", "00FF00", "00FF00") // Green for "Passed"
     passStyle.ApplyFill = true
 
     failStyle := xlsx.NewStyle()
-    failStyle.Fill = *xlsx.NewFill("solid", "FFFF0000", "FFFF0000") // Red for "Failed"
+    failStyle.Fill = *xlsx.NewFill("solid", "FF0000", "FF0000") // Red for "Failed"
     failStyle.ApplyFill = true
 
     // Add headers
@@ -59,7 +57,7 @@ func TestConnectToRouter18(t *testing.T) {
     }
 
     // Print the paths at the end of the output
-    t.Log("Nping traffic generation for UDP and TCP completed.")
+    t.Log("Nping traffic generation for UDP and TCP completed.\n")
     t.Logf("path for testcase : /home/tcs/sample/ondatra/otg/otg3/npingk1_test.go")
     t.Logf("path for excel:%v", filePath)
 }
@@ -70,10 +68,9 @@ func executeAndLogNpingCommand(testName, command string, sheet *xlsx.Sheet, outp
     resultText := "Passed"
 
     // Check for packet loss in the output
-    packetLoss := extractPacketLoss(output)
-    if packetLoss > 0 {
+    if strings.Contains(output, "% packet loss") {
         resultStyle = failStyle
-        resultText = fmt.Sprintf("Failed (Packet Loss: %d%%)", packetLoss)
+        resultText = "Failed"
     } else if err != nil {
         resultStyle = failStyle
         resultText = "Failed"
@@ -102,18 +99,4 @@ func executeNpingCommand(command string, t *testing.T) (string, error) {
     }
     t.Logf("Nping output: %s", string(output))
     return string(output), nil
-}
-
-func extractPacketLoss(output string) int {
-    // Regular expression to extract packet loss percentage
-    re := regexp.MustCompile(`(\d+)% packet loss`)
-    matches := re.FindStringSubmatch(output)
-    if len(matches) == 2 {
-        loss, err := strconv.Atoi(matches[1])
-        if err != nil {
-            return 0
-        }
-        return loss
-    }
-    return 0
 }
