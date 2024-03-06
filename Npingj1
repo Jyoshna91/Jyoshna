@@ -3,6 +3,8 @@ package otg3
 import (
     "fmt"
     "os/exec"
+    "regexp"
+    "strconv"
     "strings"
     "testing"
     "time"
@@ -66,7 +68,13 @@ func executeAndLogNpingCommand(testName, command string, sheet *xlsx.Sheet, outp
     output, err := executeNpingCommand(command, t)
     resultStyle := passStyle
     resultText := "Passed"
-    if err != nil {
+
+    // Check for packet loss in the output
+    packetLoss := extractPacketLoss(output)
+    if packetLoss > 0 {
+        resultStyle = failStyle
+        resultText = fmt.Sprintf("Failed (Packet Loss: %d%%)", packetLoss)
+    } else if err != nil {
         resultStyle = failStyle
         resultText = "Failed"
     }
@@ -94,4 +102,18 @@ func executeNpingCommand(command string, t *testing.T) (string, error) {
     }
     t.Logf("Nping output: %s", string(output))
     return string(output), nil
+}
+
+func extractPacketLoss(output string) int {
+    // Regular expression to extract packet loss percentage
+    re := regexp.MustCompile(`(\d+)% packet loss`)
+    matches := re.FindStringSubmatch(output)
+    if len(matches) == 2 {
+        loss, err := strconv.Atoi(matches[1])
+        if err != nil {
+            return 0
+        }
+        return loss
+    }
+    return 0
 }
