@@ -10,10 +10,9 @@ func main() {
 	psCommand := "sudo docker ps"
 
 	// Execute the command to list available containers
-	psOutput, err := exec.Command("sh", "-c", psCommand).CombinedOutput()
+	psOutput, err := exec.Command("sh", "-c", psCommand).Output()
 	if err != nil {
 		fmt.Println("Error executing docker ps command:", err)
-		fmt.Println("Output:", string(psOutput))
 		return
 	}
 
@@ -28,7 +27,6 @@ func main() {
 	loginOutput, err := exec.Command("sh", "-c", loginCommand).CombinedOutput()
 	if err != nil {
 		fmt.Println("Error logging in to the container:", err)
-		fmt.Println("Output:", string(loginOutput))
 		return
 	}
 
@@ -39,11 +37,10 @@ func main() {
 	// Command to log in to vtysh
 	vtyshCommand := "vtysh"
 
-	// Execute the command to log in to vtysh
-	vtyshOutput, err := exec.Command("sh", "-c", vtyshCommand).CombinedOutput()
+	// Execute the command to log in to vtysh within the container's environment
+	vtyshOutput, err := exec.Command("sh", "-c", loginCommand+" -c '"+vtyshCommand+"'").CombinedOutput()
 	if err != nil {
 		fmt.Println("Error logging in to vtysh:", err)
-		fmt.Println("Output:", string(vtyshOutput))
 		return
 	}
 
