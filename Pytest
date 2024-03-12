@@ -1,44 +1,41 @@
 package main
 
 import (
-    "regexp"
     "testing"
 )
 
 func TestAddition(t *testing.T) {
     t.Run("TestAddition_1", func(t *testing.T) {
-        // Test code here
-        t.Log("Running TestAddition_1")
+        result := 2 + 3
+        expected := 5
+        if result != expected {
+            t.Errorf("Addition test failed: Expected %d, but got %d", expected, result)
+        }
     })
 
     t.Run("TestAddition_2", func(t *testing.T) {
-        // Test code here
-        t.Log("Running TestAddition_2")
+        result := 5 + 7
+        expected := 12
+        if result != expected {
+            t.Errorf("Addition test failed: Expected %d, but got %d", expected, result)
+        }
     })
 }
 
 func TestSubtraction(t *testing.T) {
     t.Run("TestSubtraction_1", func(t *testing.T) {
-        // Test code here
-        t.Log("Running TestSubtraction_1")
+        result := 7 - 3
+        expected := 4
+        if result != expected {
+            t.Errorf("Subtraction test failed: Expected %d, but got %d", expected, result)
+        }
     })
 
     t.Run("TestSubtraction_2", func(t *testing.T) {
-        // Test code here
-        t.Log("Running TestSubtraction_2")
-    })
-}
-
-func TestMain(m *testing.M) {
-    keyword := "Addition"
-
-    re := regexp.MustCompile(keyword)
-    t := &testing.T{}
-    t.Run("TestAddition", func(t *testing.T) {
-        for _, sub := range t.SubTests {
-            if re.MatchString(sub.Name()) {
-                sub.F(t)
-            }
+        result := 10 - 5
+        expected := 5
+        if result != expected {
+            t.Errorf("Subtraction test failed: Expected %d, but got %d", expected, result)
         }
     })
 }
